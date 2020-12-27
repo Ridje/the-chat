@@ -20,3 +20,4 @@ out/
 *.sql
 *.sqlite
 *.db
+*.properties
