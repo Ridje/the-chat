@@ -6,8 +6,7 @@ import ru.gb_students.the_chat.network.SocketThreadListener;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
+import java.awt.event.*;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.net.Socket;
@@ -18,25 +17,28 @@ import java.util.Arrays;
 public class ClientGUI extends JFrame implements ActionListener,
         Thread.UncaughtExceptionHandler, SocketThreadListener {
 
-    private static final int WIDTH = 400;
+    private static final int WIDTH = 500;
     private static final int HEIGHT = 300;
     private static final String WINDOW_TITLE = "Chat client";
     private final DateFormat DATE_FORMAT = new SimpleDateFormat("[HH:mm:ss] ");
 
     private final JTextArea log = new JTextArea();
 
-    private final JPanel panelTop = new JPanel(new GridLayout(2, 3));
+    private final JPanel panelTop = new JPanel(new GridLayout(2, 4));
     private final JTextField tfIPAddress = new JTextField("127.0.0.1");
     private final JTextField tfPort = new JTextField("8189");
     private final JCheckBox cbAlwaysOnTop = new JCheckBox("Always on top");
-    private final JTextField tfLogin = new JTextField("ivan");
-    private final JPasswordField tfPassword = new JPasswordField("123");
+    private final JTextField tfLogin = new JTextField("user1");
+    private final JPasswordField tfPassword = new JPasswordField("123Qwer");
     private final JButton btnLogin = new JButton("Login");
+    private final JCheckBox cbDownloadHistoryOnConnect = new JCheckBox("History");
 
     private final JPanel panelBottom = new JPanel(new BorderLayout());
+    private final JPanel panelBottomWest = new JPanel(new BorderLayout());
     private final JButton btnDisconnect = new JButton("<html><b>Disconnect</b></html>");
     private final JTextField tfMessage = new JTextField();
     private final JButton btnSend = new JButton("Send");
+    private final JButton btnChangeNickname = new JButton("<html><b>Change nickname</b></html>");
 
     private final JList<String> userList = new JList<>();
     private boolean shownIoErrors = false;
@@ -67,16 +69,24 @@ public class ClientGUI extends JFrame implements ActionListener,
         tfMessage.addActionListener(this);
         btnLogin.addActionListener(this);
         btnDisconnect.addActionListener(this);
+        btnChangeNickname.addActionListener(this);
 
         panelTop.add(tfIPAddress);
         panelTop.add(tfPort);
         panelTop.add(cbAlwaysOnTop);
+        panelTop.add(new Panel());
         panelTop.add(tfLogin);
         panelTop.add(tfPassword);
+        panelTop.add(cbDownloadHistoryOnConnect);
         panelTop.add(btnLogin);
-        panelBottom.add(btnDisconnect, BorderLayout.WEST);
+
+        panelBottomWest.add(btnDisconnect, BorderLayout.SOUTH);
+        panelBottomWest.add(btnChangeNickname, BorderLayout.NORTH);
+
+        panelBottom.add(panelBottomWest, BorderLayout.WEST);
         panelBottom.add(tfMessage, BorderLayout.CENTER);
         panelBottom.add(btnSend, BorderLayout.EAST);
+
         updateElementsVisible(false);
 
         add(scrollLog, BorderLayout.CENTER);
@@ -98,6 +108,8 @@ public class ClientGUI extends JFrame implements ActionListener,
             connect();
         } else if (src == btnDisconnect) {
             disconnect();
+        } else if (src == btnChangeNickname) {
+            changeNickname();
         } else {
             throw new RuntimeException("Undefined source: " + src);
         }
@@ -124,6 +136,13 @@ public class ClientGUI extends JFrame implements ActionListener,
         tfMessage.setText(null);
         tfMessage.grabFocus();
         socketThread.sendMessage(Protocol.getUserBroadcast(msg));
+    }
+
+    private void changeNickname() {
+        String newNickname = JOptionPane.showInputDialog("Введите новый никнейм");
+        if (newNickname != null && !newNickname.isEmpty()) {
+            socketThread.sendMessage(Protocol.getChangeNickname(newNickname));
+        }
     }
 
     private void updateElementsVisible(boolean isSocketConnected) {
@@ -215,8 +234,10 @@ public class ClientGUI extends JFrame implements ActionListener,
         switch (msgType) {
             case Protocol.AUTH_ACCEPT:
                 setTitle(WINDOW_TITLE + " nickname: " + arr[1]);
-                panelBottom.setVisible(true);
-                panelTop.setVisible(false);
+                updateElementsVisible(true);
+                if (cbDownloadHistoryOnConnect.isSelected()) {
+                    socketThread.sendMessage(Protocol.getRequestMessageList());
+                }
                 break;
             case Protocol.AUTH_DENIED:
                 putLog("Authorization failed");
@@ -236,6 +257,11 @@ public class ClientGUI extends JFrame implements ActionListener,
                 String[] usersArr = users.split(Protocol.DELIMITER);
                 Arrays.sort(usersArr);
                 userList.setListData(usersArr);
+                break;
+            case Protocol.MESSAGE_LIST:
+                String messages = msg.substring(Protocol.MESSAGE_LIST.length() + Protocol.DELIMITER.length());
+                String formattedMessage = messages.replaceAll(Protocol.DELIMITER, System.lineSeparator());
+                putLog(formattedMessage);
                 break;
             default:
                 throw new RuntimeException("Unknown message type: " + msg);

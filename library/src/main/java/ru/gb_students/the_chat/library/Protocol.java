@@ -9,9 +9,21 @@ public class Protocol {
     public static final String TYPE_BROADCAST = "/bcast";
     public static final String USER_LIST = "/user_list";
     public static final String USER_BROADCAST = "/user_bcast";
+    public static final String CHANGE_NICKNAME = "/change_nickname";
+    public static final String CHANGE_NICKNAME_FAILED = "/changed_nickname_failed";
+    public static final String MESSAGE_LIST = "/message_list";
+    public static final String REQUEST_MESSAGE_LIST = "/request_message_list";
 
     public static String getUserBroadcast(String msg) {
         return USER_BROADCAST + DELIMITER + msg;
+    }
+
+    public static String getMessageList(String messages) {
+        return MESSAGE_LIST + DELIMITER + messages;
+    }
+
+    public static String getRequestMessageList() {
+        return REQUEST_MESSAGE_LIST;
     }
 
     public static String getUserList(String users) {
@@ -20,6 +32,14 @@ public class Protocol {
 
     public static String getAuthRequest(String login, String password) {
         return AUTH_REQUEST + DELIMITER + login + DELIMITER + password;
+    }
+
+    public static String getChangeNickname(String newNickname) {
+        return CHANGE_NICKNAME + DELIMITER + newNickname;
+    }
+
+    public static String getChangeNicknameFailed() {
+        return CHANGE_NICKNAME_FAILED;
     }
 
     public static String getAuthAccept(String nickname) {
