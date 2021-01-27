@@ -8,6 +8,7 @@ import java.net.Socket;
 public class ClientThread extends SocketThread {
 
     private String nickname;
+    private String login;
     private boolean isAuthorized;
     private boolean isReconnecting;
 
@@ -19,6 +20,28 @@ public class ClientThread extends SocketThread {
         return nickname;
     }
 
+    public String getLogin() {
+        return login;
+    }
+
+    public boolean changeNickname(String newNickname) {
+        if (SQLClient.changeNickname(nickname, newNickname)) {
+            this.nickname = newNickname;
+            return true;
+        } else {
+            sendMessage(Protocol.getChangeNicknameFailed());
+            return false;
+        }
+    }
+
+    public boolean addMessage(String message) {
+        if (SQLClient.addMesage(this.getLogin(), message)) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     public void reconnect() {
         isReconnecting = true;
         close();
@@ -28,8 +51,9 @@ public class ClientThread extends SocketThread {
         return isAuthorized;
     }
 
-    void authAccept(String nickname) {
+    void authAccept(String login, String nickname) {
         isAuthorized = true;
+        this.login = login;
         this.nickname = nickname;
         sendMessage(Protocol.getAuthAccept(nickname));
     }

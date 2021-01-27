@@ -9,6 +9,8 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Vector;
 
 public class ChatServer implements ServerSocketThreadListener, SocketThreadListener {
@@ -99,7 +101,7 @@ public class ChatServer implements ServerSocketThreadListener, SocketThreadListe
         clients.remove(thread);
         if (client.isAuthorized() && !client.isReconnecting()) {
             sendToAllAuthorizedClients(Protocol.getTypeBroadcast(
-                    "Server", client.getNickname() + " disconnected"));
+                    "Server", "user [" + client.getNickname() + "] disconnected"));
         }
         sendToAllAuthorizedClients(Protocol.getUserList(getUsers()));
     }
@@ -134,9 +136,9 @@ public class ChatServer implements ServerSocketThreadListener, SocketThreadListe
             return;
         } else {
             ClientThread oldClient = findClientByNickname(nickname);
-            client.authAccept(nickname);
+            client.authAccept(login, nickname);
             if (oldClient == null) {
-                sendToAllAuthorizedClients(Protocol.getTypeBroadcast("Server", nickname + " connected"));
+                sendToAllAuthorizedClients(Protocol.getTypeBroadcast("Server", "user [" + nickname + "] connected"));
             } else {
                 oldClient.reconnect();
                 clients.remove(oldClient);
@@ -151,6 +153,18 @@ public class ChatServer implements ServerSocketThreadListener, SocketThreadListe
         switch (msgType) {
             case Protocol.USER_BROADCAST:
                 sendToAllAuthorizedClients(Protocol.getTypeBroadcast(client.getNickname(), arr[1]));
+                client.addMessage(arr[1]);
+                break;
+            case Protocol.CHANGE_NICKNAME:
+                String oldNickname = client.getNickname();
+                String newNickname = arr[1];
+                if (client.changeNickname(newNickname)) {
+                    sendToAllAuthorizedClients(Protocol.getTypeBroadcast("Server", oldNickname + " changed nickname to " + newNickname));
+                    sendToAllAuthorizedClients(Protocol.getUserList(getUsers()));
+                }
+                break;
+            case Protocol.REQUEST_MESSAGE_LIST:
+                client.sendMessage(Protocol.getMessageList(getMessages()));
                 break;
             default:
                 client.msgFormatError(msg);
@@ -177,6 +191,18 @@ public class ChatServer implements ServerSocketThreadListener, SocketThreadListe
             if (!client.isAuthorized()) continue;
             sb.append(client.getNickname()).append(Protocol.DELIMITER);
         }
+        return sb.toString();
+    }
+
+    private String getMessages() {
+        StringBuilder sb = new StringBuilder();
+        ArrayList<HashMap<String, String>> messages = SQLClient.getMessages();
+        for (HashMap<String, String> message: messages) {
+                sb.append("[" + message.get("timestamp") + "]");
+            sb.append(" " + message.get("nickname") + ":");
+            sb.append(" " + message.get("message") + "").append(Protocol.DELIMITER);
+        }
+        sb.append("History downloaded");
         return sb.toString();
     }
 
