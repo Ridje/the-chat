@@ -34,6 +34,14 @@ public class ClientThread extends SocketThread {
         }
     }
 
+    public boolean addMessage(String message) {
+        if (SQLClient.addMesage(this.getLogin(), message)) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     public void reconnect() {
         isReconnecting = true;
         close();

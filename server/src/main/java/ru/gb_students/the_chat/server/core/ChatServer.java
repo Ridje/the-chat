@@ -153,7 +153,7 @@ public class ChatServer implements ServerSocketThreadListener, SocketThreadListe
         switch (msgType) {
             case Protocol.USER_BROADCAST:
                 sendToAllAuthorizedClients(Protocol.getTypeBroadcast(client.getNickname(), arr[1]));
-                SQLClient.addMesage(client.getLogin(), arr[1]);
+                client.addMessage(arr[1]);
                 break;
             case Protocol.CHANGE_NICKNAME:
                 String oldNickname = client.getNickname();

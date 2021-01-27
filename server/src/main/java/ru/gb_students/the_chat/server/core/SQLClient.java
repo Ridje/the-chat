@@ -5,29 +5,54 @@ import org.sqlite.JDBC;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Vector;
 
 public class SQLClient {
 
     private static Connection connection;
     private static Statement statement;
+    private static ArrayList<Statement> statementsList;
+    private static PreparedStatement getNickname;
+    private static PreparedStatement changeNickname;
+    private static PreparedStatement addMessage;
+    private static PreparedStatement getMessages;
 
     public static void connect() {
         try {
             Class.forName("org.sqlite.JDBC");
             connection = DriverManager.getConnection(JDBC.PREFIX + "server/clients.db");
-            statement = connection.createStatement();
+            initializeStatements();
+            addStatementsToCollection();
         } catch (ClassNotFoundException | SQLException e) {
             throw new RuntimeException(e);
         }
     }
 
+    private static void initializeStatements() throws SQLException {
+        statement = connection.createStatement();
+        getNickname = connection.prepareStatement("select nickname from clients where login=? and password=?");
+        changeNickname = connection.prepareStatement("UPDATE clients SET nickname = ? where nickname = ?");
+        addMessage = connection.prepareStatement("INSERT into messages(client, message) VALUES (?, ?)");
+        getMessages = connection.prepareStatement("SELECT clients.nickname as nickname, message, timestamp FROM messages " +
+                "LEFT JOIN clients ON messages.client = clients.login ORDER BY timestamp\"");
+    }
+
+    private static void addStatementsToCollection() {
+        statementsList.add(addMessage);
+        statementsList.add(getNickname);
+        statementsList.add(changeNickname);
+        statementsList.add(getMessages);
+        statementsList.add(statement);
+    }
+
+
     public static String getNickname(String login, String password) {
-        String query = String.format("select nickname from clients where login='%s' and password='%s'",
-                login, password);
-        try (ResultSet set = statement.executeQuery(query)) {
-            if (set.next()) {
-                return set.getString("nickname");
+        try {
+            getNickname.setString(1, login);
+            getNickname.setString(2, password);
+            try (ResultSet set = getNickname.executeQuery()) {
+                if (set.next()) {
+                    return set.getString("nickname");
+                }
             }
         } catch (SQLException e) {
             throw new RuntimeException(e);
@@ -36,9 +61,10 @@ public class SQLClient {
     }
 
     public static boolean changeNickname(String currentNickname, String newNickname) {
-        String query = String.format("UPDATE clients SET nickname = '%s' where nickname = '%s'", newNickname, currentNickname);
         try {
-            statement.executeUpdate(query);
+            changeNickname.setString(1, newNickname);
+            changeNickname.setString(2, currentNickname);
+            changeNickname.executeUpdate();
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
@@ -47,9 +73,10 @@ public class SQLClient {
 
     public static boolean addMesage(String login, String message) {
 
-        String query = String.format("INSERT into messages(client, message) VALUES ('%s', '%s')", login, message);
         try {
-            statement.executeUpdate(query);
+            addMessage.setString(1, login);
+            addMessage.setString(2, message);
+            addMessage.executeUpdate();
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
@@ -57,9 +84,9 @@ public class SQLClient {
     }
 
     public static ArrayList<HashMap<String, String>> getMessages() {
-        String query = String.format("SELECT clients.nickname as nickname, message, timestamp FROM messages LEFT JOIN clients ON messages.client = clients.login ORDER BY timestamp");
+
         ArrayList<HashMap<String, String>> messages = new ArrayList<>();
-        try (ResultSet set = statement.executeQuery(query)) {
+        try (ResultSet set = addMessage.executeQuery()) {
             while (set.next()) {
                 HashMap<String, String> message= new HashMap<>();
                 message.put("nickname", set.getString("nickname"));
@@ -76,12 +103,18 @@ public class SQLClient {
 
     public static void disconnect() {
         try {
+            closeStatements();
             connection.close();
-        } catch (SQLException throwable) {
-            throw new RuntimeException(throwable);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
         }
     }
 
+    private static void closeStatements() throws SQLException{
+        for (Statement closingStatement:statementsList) {
+            closingStatement.close();
+        }
+    }
 
     //It's documentation alike-code. Should did it in your sqlite database.
     public static String createTableMessages() {
