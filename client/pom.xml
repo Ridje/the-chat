@@ -45,7 +45,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>ru.gb_students.the_chat.client.ClientGUI</mainClass>
+                            <mainClass>ru.gb_students.the_chat.client.gui.ClientGUI</mainClass>
                         </manifest>
                     </archive>
                     <descriptorRefs>
@@ -58,8 +58,8 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.8.0</version>
                 <configuration>
-                    <source>1.8</source>
-                    <target>1.8</target>
+                    <source>9</source>
+                    <target>9</target>
                 </configuration>
             </plugin>
         </plugins>

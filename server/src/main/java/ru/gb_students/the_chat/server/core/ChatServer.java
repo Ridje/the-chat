@@ -7,6 +7,8 @@ import ru.gb_students.the_chat.network.SocketThread;
 import ru.gb_students.the_chat.network.SocketThreadListener;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -17,7 +19,7 @@ public class ChatServer implements ServerSocketThreadListener, SocketThreadListe
     private ServerSocketThread server;
     private Vector<SocketThread> clients;
     private ChatServerListener listener;
-    private final DateFormat DATE_FORMAT = new SimpleDateFormat("[HH:mm:ss] ");
+    private final DateFormat DATE_FORMAT = new SimpleDateFormat("[yyyy-MM-dd HH:mm:ss] ");
 
     public ChatServer(ChatServerListener listener) {
         this.listener = listener;
@@ -62,6 +64,7 @@ public class ChatServer implements ServerSocketThreadListener, SocketThreadListe
         for (int i = 0; i < clients.size(); i++) {
             clients.get(i).close();
         }
+
     }
 
     @Override
@@ -164,7 +167,10 @@ public class ChatServer implements ServerSocketThreadListener, SocketThreadListe
                 }
                 break;
             case Protocol.REQUEST_MESSAGE_LIST:
-                client.sendMessage(Protocol.getMessageList(getMessages()));
+                String timestampString = arr[1];
+
+                Timestamp timeBorder = new Timestamp(Long.parseLong(timestampString));
+                client.sendMessage(Protocol.getMessageList(getMessages(timeBorder)));
                 break;
             default:
                 client.msgFormatError(msg);
@@ -195,14 +201,17 @@ public class ChatServer implements ServerSocketThreadListener, SocketThreadListe
     }
 
     private String getMessages() {
+        return getMessages(new Timestamp(0));
+    }
+
+    private String getMessages(Timestamp timestamp) {
         StringBuilder sb = new StringBuilder();
-        ArrayList<HashMap<String, String>> messages = SQLClient.getMessages();
+        ArrayList<HashMap<String, String>> messages = SQLClient.getMessages(String.valueOf(timestamp.getTime()));
         for (HashMap<String, String> message: messages) {
-                sb.append("[" + message.get("timestamp") + "]");
+            sb.append("[" + message.get("timestamp") + "]");
             sb.append(" " + message.get("nickname") + ":");
             sb.append(" " + message.get("message") + "").append(Protocol.DELIMITER);
         }
-        sb.append("History downloaded");
         return sb.toString();
     }
 

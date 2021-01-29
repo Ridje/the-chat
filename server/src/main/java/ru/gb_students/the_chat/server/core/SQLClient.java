@@ -10,7 +10,7 @@ public class SQLClient {
 
     private static Connection connection;
     private static Statement statement;
-    private static ArrayList<Statement> statementsList;
+    private static ArrayList<Statement> statementsList = new ArrayList<>();
     private static PreparedStatement getNickname;
     private static PreparedStatement changeNickname;
     private static PreparedStatement addMessage;
@@ -33,7 +33,7 @@ public class SQLClient {
         changeNickname = connection.prepareStatement("UPDATE clients SET nickname = ? where nickname = ?");
         addMessage = connection.prepareStatement("INSERT into messages(client, message) VALUES (?, ?)");
         getMessages = connection.prepareStatement("SELECT clients.nickname as nickname, message, timestamp FROM messages " +
-                "LEFT JOIN clients ON messages.client = clients.login ORDER BY timestamp\"");
+                "LEFT JOIN clients ON messages.client = clients.login WHERE CAST(strftime('%s', timestamp) AS INT) > ? ORDER BY timestamp");
     }
 
     private static void addStatementsToCollection() {
@@ -83,21 +83,24 @@ public class SQLClient {
         return true;
     }
 
-    public static ArrayList<HashMap<String, String>> getMessages() {
+    public static ArrayList<HashMap<String, String>> getMessages(String timestampBorder) {
 
         ArrayList<HashMap<String, String>> messages = new ArrayList<>();
-        try (ResultSet set = addMessage.executeQuery()) {
-            while (set.next()) {
-                HashMap<String, String> message= new HashMap<>();
-                message.put("nickname", set.getString("nickname"));
-                message.put("message", set.getString("message"));
-                message.put("timestamp", set.getString("timestamp"));
-                messages.add(message);
+        try {
+            getMessages.setString(1, timestampBorder);
+
+            try (ResultSet set = getMessages.executeQuery()) {
+                while (set.next()) {
+                    HashMap<String, String> message = new HashMap<>();
+                    message.put("nickname", set.getString("nickname"));
+                    message.put("message", set.getString("message"));
+                    message.put("timestamp", set.getString("timestamp"));
+                    messages.add(message);
+                }
             }
         } catch (SQLException e) {
             throw new RuntimeException();
         }
-
         return messages;
     }
 
