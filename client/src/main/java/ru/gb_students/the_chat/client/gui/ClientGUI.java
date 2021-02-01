@@ -1,15 +1,18 @@
-package ru.gb_students.the_chat.client;
+package ru.gb_students.the_chat.client.gui;
 
+import ru.gb_students.the_chat.client.logging.Logger;
 import ru.gb_students.the_chat.library.Protocol;
 import ru.gb_students.the_chat.network.SocketThread;
 import ru.gb_students.the_chat.network.SocketThreadListener;
 
 import javax.swing.*;
+import javax.swing.text.BadLocationException;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.net.Socket;
+import java.sql.Timestamp;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
@@ -19,8 +22,9 @@ public class ClientGUI extends JFrame implements ActionListener,
 
     private static final int WIDTH = 500;
     private static final int HEIGHT = 300;
+    private static final int localHistoryLength = 100;
     private static final String WINDOW_TITLE = "Chat client";
-    private final DateFormat DATE_FORMAT = new SimpleDateFormat("[HH:mm:ss] ");
+    private final DateFormat DATE_FORMAT = new SimpleDateFormat("[yyyy-MM-dd HH:mm:ss] ");
 
     private final JTextArea log = new JTextArea();
 
@@ -43,6 +47,8 @@ public class ClientGUI extends JFrame implements ActionListener,
     private final JList<String> userList = new JList<>();
     private boolean shownIoErrors = false;
     private SocketThread socketThread;
+    private Logger logger;
+    private Timestamp localHistoryTimestamp;
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(new Runnable() {
@@ -93,6 +99,8 @@ public class ClientGUI extends JFrame implements ActionListener,
         add(scrollUsers, BorderLayout.EAST);
         add(panelTop, BorderLayout.NORTH);
         add(panelBottom, BorderLayout.SOUTH);
+
+        logger = new Logger(tfLogin.getText(), DATE_FORMAT);
 
         setVisible(true);
     }
@@ -173,6 +181,32 @@ public class ClientGUI extends JFrame implements ActionListener,
         });
     }
 
+    private void cleanLog() {
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                log.selectAll();
+                log.replaceSelection("");
+                log.setCaretPosition(log.getDocument().getLength());
+            }
+        });
+    }
+
+    private void putLogAtBeggining(String msg) {
+        if ("".equals(msg)) return;
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    log.getDocument().insertString(0, msg + "\n", null);
+                } catch (BadLocationException e) {
+                    e.printStackTrace();
+                }
+                log.setCaretPosition(log.getDocument().getLength());
+            }
+        });
+    }
+
     private void showException(Thread t, Throwable e) {
         String msg;
         StackTraceElement[] ste = e.getStackTrace();
@@ -203,6 +237,7 @@ public class ClientGUI extends JFrame implements ActionListener,
 
     @Override
     public void onSocketStop(SocketThread thread) {
+        cleanLog();
         putLog("Socket stopped");
         updateElementsVisible(false);
         setTitle(WINDOW_TITLE);
@@ -235,8 +270,20 @@ public class ClientGUI extends JFrame implements ActionListener,
             case Protocol.AUTH_ACCEPT:
                 setTitle(WINDOW_TITLE + " nickname: " + arr[1]);
                 updateElementsVisible(true);
+                localHistoryTimestamp = logger.getLogTimestamp();
                 if (cbDownloadHistoryOnConnect.isSelected()) {
-                    socketThread.sendMessage(Protocol.getRequestMessageList());
+                    logger.setBlockAddition();
+                    socketThread.sendMessage(Protocol.getRequestMessageList(String.valueOf(localHistoryTimestamp.getTime())));
+                } else {
+                    StringBuilder outputMessage = new StringBuilder("--download local history--");
+                    outputMessage.append(System.lineSeparator());
+                    String localHistory = logger.getLocalHistory(localHistoryLength);
+                    if (!localHistory.isEmpty()) {
+                        outputMessage.append(localHistory);
+                        outputMessage.append(System.lineSeparator());
+                    }
+                    outputMessage.append("--history downloaded--");
+                    putLogAtBeggining(outputMessage.toString());
                 }
                 break;
             case Protocol.AUTH_DENIED:
@@ -247,9 +294,11 @@ public class ClientGUI extends JFrame implements ActionListener,
                 socketThread.close();
                 break;
             case Protocol.TYPE_BROADCAST:
-                putLog(String.format("%s%s: %s",
+                String message = String.format("%s%s: %s",
                         DATE_FORMAT.format(Long.parseLong(arr[1])),
-                        arr[2], arr[3]));
+                        arr[2], arr[3]);
+                putLog(message);
+                logger.putLog(message);
                 break;
             case Protocol.USER_LIST:
                 String users = msg.substring(Protocol.USER_LIST.length() +
@@ -260,8 +309,16 @@ public class ClientGUI extends JFrame implements ActionListener,
                 break;
             case Protocol.MESSAGE_LIST:
                 String messages = msg.substring(Protocol.MESSAGE_LIST.length() + Protocol.DELIMITER.length());
+                StringBuilder outpudMessage = new StringBuilder("--downloading history from server--");
+                outpudMessage.append(System.lineSeparator());
                 String formattedMessage = messages.replaceAll(Protocol.DELIMITER, System.lineSeparator());
-                putLog(formattedMessage);
+                outpudMessage.append(formattedMessage);
+                outpudMessage.append("--history downloaded--");
+                if (!formattedMessage.isEmpty()) {
+                    logger.putLogIgnoreBlock(formattedMessage);
+                }
+                putLogAtBeggining(logger.getLocalHistory(100));
+                logger.removeBlockAddition();
                 break;
             default:
                 throw new RuntimeException("Unknown message type: " + msg);

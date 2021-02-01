@@ -22,8 +22,8 @@ public class Protocol {
         return MESSAGE_LIST + DELIMITER + messages;
     }
 
-    public static String getRequestMessageList() {
-        return REQUEST_MESSAGE_LIST;
+    public static String getRequestMessageList(String timestampOfCachedHistory) {
+        return REQUEST_MESSAGE_LIST + DELIMITER + timestampOfCachedHistory;
     }
 
     public static String getUserList(String users) {
