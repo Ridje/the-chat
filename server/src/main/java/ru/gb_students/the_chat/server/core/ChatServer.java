@@ -14,12 +14,15 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Vector;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class ChatServer implements ServerSocketThreadListener, SocketThreadListener {
     private ServerSocketThread server;
     private Vector<SocketThread> clients;
     private ChatServerListener listener;
     private final DateFormat DATE_FORMAT = new SimpleDateFormat("[yyyy-MM-dd HH:mm:ss] ");
+    private ExecutorService threadsManager;
 
     public ChatServer(ChatServerListener listener) {
         this.listener = listener;
@@ -31,6 +34,7 @@ public class ChatServer implements ServerSocketThreadListener, SocketThreadListe
             System.out.println("Server already started");
         } else {
             server = new ServerSocketThread(this, "Server", port, 2000);
+            threadsManager = Executors.newCachedThreadPool();
         }
     }
 
@@ -60,6 +64,7 @@ public class ChatServer implements ServerSocketThreadListener, SocketThreadListe
     @Override
     public void onServerStop(ServerSocketThread thread) {
         putLog("Server socket thread stopped");
+        threadsManager.shutdownNow();
         SQLClient.disconnect();
         for (int i = 0; i < clients.size(); i++) {
             clients.get(i).close();
@@ -81,7 +86,7 @@ public class ChatServer implements ServerSocketThreadListener, SocketThreadListe
     public void onSocketAccepted(ServerSocketThread thread, ServerSocket server, Socket socket) {
         putLog("Client connected");
         String name = "SocketThread" + socket.getInetAddress() + ":" + socket.getPort();
-        new ClientThread(this, name, socket);
+        threadsManager.execute(new ClientThread(this, name, socket));
     }
 
     @Override
