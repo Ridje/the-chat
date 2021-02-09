@@ -7,7 +7,6 @@ import ru.gb_students.the_chat.network.SocketThread;
 import ru.gb_students.the_chat.network.SocketThreadListener;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.sql.Time;
 import java.sql.Timestamp;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -16,6 +15,8 @@ import java.util.HashMap;
 import java.util.Vector;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class ChatServer implements ServerSocketThreadListener, SocketThreadListener {
     private ServerSocketThread server;
@@ -23,6 +24,7 @@ public class ChatServer implements ServerSocketThreadListener, SocketThreadListe
     private ChatServerListener listener;
     private final DateFormat DATE_FORMAT = new SimpleDateFormat("[yyyy-MM-dd HH:mm:ss] ");
     private ExecutorService threadsManager;
+    private final Logger logger = Logger.getLogger(ChatServer.class.getName());
 
     public ChatServer(ChatServerListener listener) {
         this.listener = listener;
@@ -47,9 +49,9 @@ public class ChatServer implements ServerSocketThreadListener, SocketThreadListe
     }
 
     private void putLog(String msg) {
-
         msg = DATE_FORMAT.format(System.currentTimeMillis()) + Thread.currentThread().getName() + ": " + msg;
         listener.onChatServerMessage(msg);
+        logger.log(Level.INFO, msg);
     }
 
     /**
